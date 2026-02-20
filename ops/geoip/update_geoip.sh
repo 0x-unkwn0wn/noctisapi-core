@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DEST_DIR="${DEST_DIR:-/opt/shadowapi-core/data}"
+DEST_DIR="${DEST_DIR:-/opt/noctisapi-core/data}"
 ACCOUNT_ID="${MAXMIND_ACCOUNT_ID:-}"
 LICENSE_KEY="${MAXMIND_LICENSE_KEY:-}"
 EDITION_ID="${MAXMIND_EDITION_ID:-GeoLite2-Country}"

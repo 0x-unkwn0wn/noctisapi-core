@@ -1,4 +1,4 @@
-﻿ShadowAPI Core validation checklist
+﻿NoctisAPI Core validation checklist
 
 1) Ensure schema applied
 

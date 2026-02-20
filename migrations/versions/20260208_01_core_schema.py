@@ -1,4 +1,4 @@
-"""Core database schema for ShadowAPI Core."""
+"""Core database schema for NoctisAPI Core."""
 
 from alembic import op
 

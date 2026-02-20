@@ -1,4 +1,4 @@
-﻿ShadowAPI Core Automations
+﻿NoctisAPI Core Automations
 
 This document describes automatic behavior in the Core edition.
 

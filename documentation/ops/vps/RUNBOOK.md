@@ -1,4 +1,4 @@
-# ShadowAPI Production Runbook
+# NoctisAPI Production Runbook
 
 This runbook covers:
 - Initial VPS setup
@@ -9,7 +9,7 @@ This runbook covers:
 ## Prerequisites
 - VPS with public IP and SSH access
 - DuckDNS subdomain + token
-- Docker image published (e.g. `ghcr.io/<ORG>/shadowapi-core`)
+- Docker image published (e.g. `ghcr.io/<ORG>/noctisapi-core`)
 - `.env.prod` prepared with real values (kept on the server, not inside the image)
 
 ## Phase 1: VPS Baseline
@@ -42,14 +42,14 @@ This runbook covers:
 
 ## Phase 3: Repo Layout on VPS
 1. Create deployment directory:
-   - `mkdir -p /opt/shadowapi-core`
+   - `mkdir -p /opt/noctisapi-core`
 2. Clone repo:
-   - `git clone <REPO_URL> /opt/shadowapi-core`
+   - `git clone <REPO_URL> /opt/noctisapi-core`
 3. Create `.env.prod` (not baked into the image):
-   - `cp /opt/shadowapi-core/.env.prod.example /opt/shadowapi-core/.env.prod`
+   - `cp /opt/noctisapi-core/.env.prod.example /opt/noctisapi-core/.env.prod`
    - Fill real values (tokens, URLs, passwords).
    - Add:
-     - `HP_IMAGE=ghcr.io/<ORG>/shadowapi-core`
+     - `HP_IMAGE=ghcr.io/<ORG>/noctisapi-core`
      - `HP_PUBLIC_HOST=<SUBDOMAIN>.duckdns.org`
      - `ACME_EMAIL=<you@example.com>`
      - `HONEYPOT_PUBLIC_BASE_URL=https://<SUBDOMAIN>.duckdns.org` (public URL shown in admin)
@@ -68,7 +68,7 @@ Traefik handles certificates automatically via ACME HTTP-01.
 ## Phase 5: First Production Deploy
 1. Ensure `.env.prod` is correct.
 2. Run deploy:
-   - `bash /opt/shadowapi-core/ops/vps/deploy.sh`
+   - `bash /opt/noctisapi-core/ops/vps/deploy.sh`
 3. Verify:
    - `curl -i https://<SUBDOMAIN>.duckdns.org/health`
    - `curl -i https://<SUBDOMAIN>.duckdns.org/docs`
@@ -76,7 +76,7 @@ Traefik handles certificates automatically via ACME HTTP-01.
 4. The SQLite database (`/data/honeypot.db`) is created automatically on the first migration/startup.
 5. If you see `attempt to write a readonly database`, fix volume ownership once:
    - `docker compose -f compose/docker-compose.prod.yml --env-file .env.prod run --rm --user 0:0 app sh -c "chown -R 10001:0 /data"`
-   - then re-run `bash /opt/shadowapi-core/ops/vps/deploy.sh`
+   - then re-run `bash /opt/noctisapi-core/ops/vps/deploy.sh`
 
 ## Phase 5.1: GeoIP database (flags)
 MaxMind GeoLite2 is not committed to git. Download it on the server:
@@ -84,15 +84,15 @@ MaxMind GeoLite2 is not committed to git. Download it on the server:
    - `export MAXMIND_ACCOUNT_ID=...`
    - `export MAXMIND_LICENSE_KEY=...`
 2. Run:
-   - `bash /opt/shadowapi-core/ops/geoip/update_geoip.sh`
+   - `bash /opt/noctisapi-core/ops/geoip/update_geoip.sh`
 3. Ensure `.env.prod` uses:
    - `HP_GEOIP_DB=/app/data/GeoLite2-Country.mmdb`
 
 ## Phase 5.2: Data Retention (TTL)
 1. Copy retention cron:
-   - `cp /opt/shadowapi-core/ops/cron/shadowapi-core-retention /etc/cron.d/shadowapi-core-retention`
+   - `cp /opt/noctisapi-core/ops/cron/noctisapi-core-retention /etc/cron.d/noctisapi-core-retention`
    - The cron enables retention by default (`HP_RETENTION_ENABLE=1`), runs daily at 03:15 UTC.
-2. Optional env overrides in `/etc/cron.d/shadowapi-core-retention` or `/etc/environment`:
+2. Optional env overrides in `/etc/cron.d/noctisapi-core-retention` or `/etc/environment`:
    - `HP_RETENTION_ENABLE=0` (disable retention)
    - `HP_RETENTION_EVENTS_DAYS=30`
    - `HP_RETENTION_SESSIONS_DAYS=30`
@@ -101,7 +101,7 @@ MaxMind GeoLite2 is not committed to git. Download it on the server:
    - `HP_RETENTION_TOKENS_DAYS=90`
    - `HP_RETENTION_JOBS_DAYS=30`
 3. Dry-run manually:
-   - `python /opt/shadowapi-core/scripts/prune_retention.py --db /data/honeypot.db --dry-run`
+   - `python /opt/noctisapi-core/scripts/prune_retention.py --db /data/honeypot.db --dry-run`
 
 ## Phase 6: Repeatable Deployment on New VPS
 Use the same steps with these minimal inputs:
@@ -122,13 +122,13 @@ Use an SSH deploy action that:
 ## GitHub Actions + GHCR (automatic image build)
 This repo includes `.github/workflows/ghcr.yml` which:
 - Builds the Docker image on every push to `main`
-- Pushes it to `ghcr.io/<OWNER>/shadowapi-core` with tags `latest` and commit SHA
+- Pushes it to `ghcr.io/<OWNER>/noctisapi-core` with tags `latest` and commit SHA
 
 Steps:
 1. Push to GitHub (`main` branch).
 2. GHCR will publish the image automatically.
 3. On the VPS, set:
-   - `HP_IMAGE=ghcr.io/<OWNER>/shadowapi-core`
+   - `HP_IMAGE=ghcr.io/<OWNER>/noctisapi-core`
    - `APP_VERSION=latest` (or use the SHA tag)
 4. Run:
    - `bash ops/vps/deploy.sh`

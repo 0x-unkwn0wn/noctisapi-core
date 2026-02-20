@@ -1,12 +1,12 @@
 [Unit]
-Description=ShadowAPI Core (docker compose)
+Description=NoctisAPI Core (docker compose)
 Requires=docker.service
 After=docker.service
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-WorkingDirectory=/opt/shadowapi-core
+WorkingDirectory=/opt/noctisapi-core
 ExecStart=/usr/bin/docker compose -f compose/docker-compose.prod.yml --env-file .env.prod up -d
 ExecStop=/usr/bin/docker compose -f compose/docker-compose.prod.yml --env-file .env.prod down
 TimeoutStartSec=0

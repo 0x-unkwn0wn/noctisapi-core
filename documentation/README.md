@@ -1,6 +1,6 @@
-# ShadowAPI Container Workflow
+# NoctisAPI Container Workflow
 
-This repo packages both the public ShadowAPI honeypot API (`app/honeypot_public.py`) and the internal admin panel (`app/panel_mvp.py`) into a single Docker image. Docker Compose drives each environment while Alembic manages the SQLite schema.
+This repo packages both the public NoctisAPI honeypot API (`app/honeypot_public.py`) and the internal admin panel (`app/panel_mvp.py`) into a single Docker image. Docker Compose drives each environment while Alembic manages the SQLite schema.
 
 ## Repository Layout
 
@@ -8,7 +8,7 @@ This repo packages both the public ShadowAPI honeypot API (`app/honeypot_public.
 - `compose/docker-compose.dev.yml`  local developer stack with reload + automatic migrations.
 - `compose/docker-compose.prod.yml`  production stack (migrate, app, admin, traefik reverse proxy).
 - `migrations/`, `alembic.ini`  database migrations executed via Alembic.
-- `backup_sqlite.sh` + `ops/cron/shadowapi-core-backup` host-side backup automation (14-day retention).
+- `backup_sqlite.sh` + `ops/cron/noctisapi-core-backup` host-side backup automation (14-day retention).
 - `.env.dev` / `.env.prod.example`  environment defaults (set both `HP_DB_PATH` and `DATABASE_URL`).
 - `Makefile`  common Docker/Alembic targets.
 
@@ -33,7 +33,7 @@ The dev stack mount-binds the repo into `/app`, exposes 8000/9001, reuses the `h
 ## Backups
 
 - `backup_sqlite.sh` runs on the host (no container shell required). It uses a disposable `alpine:3` container to execute `sqlite3 .backup`, writes the snapshot to `./backups`, and prunes files older than `KEEP_DAYS` (default 14).
-- Copy `ops/cron/shadowapi-core-backup` to `/etc/cron.d/shadowapi-core-backup`, adjust the paths (e.g., `BACKUP_DIR=/var/backups/shadowapi-core` and script path `/opt/shadowapi-core/backup_sqlite.sh`), and cron will invoke the backup daily at 02:15 UTC.
+- Copy `ops/cron/noctisapi-core-backup` to `/etc/cron.d/noctisapi-core-backup`, adjust the paths (e.g., `BACKUP_DIR=/var/backups/noctisapi-core` and script path `/opt/noctisapi-core/backup_sqlite.sh`), and cron will invoke the backup daily at 02:15 UTC.
  - Set `VERIFY_INTEGRITY=1` to run `PRAGMA integrity_check` on each backup file.
 
 Both script and cron file accept overrides via `DATA_VOLUME`, `BACKUP_DIR`, `APP_DB_PATH`, and `KEEP_DAYS`.
@@ -56,13 +56,13 @@ Retention is enabled by default via cron (`HP_RETENTION_ENABLE=1`). Set `HP_RETE
 Dry-run:
 
 ```
-python /opt/shadowapi-core/scripts/prune_retention.py --db /data/honeypot.db --dry-run
+python /opt/noctisapi-core/scripts/prune_retention.py --db /data/honeypot.db --dry-run
 ```
 
 Apply:
 
 ```
-python /opt/shadowapi-core/scripts/prune_retention.py --db /data/honeypot.db
+python /opt/noctisapi-core/scripts/prune_retention.py --db /data/honeypot.db
 ```
 
 ## Actor Merge (UA Family)
@@ -109,10 +109,10 @@ Build and publish:
 ```
 VERSION=0.1.0
 ORG=<ORG>
-docker build -t ghcr.io/$ORG/shadowapi-core:$VERSION .
-docker tag ghcr.io/$ORG/shadowapi-core:$VERSION ghcr.io/$ORG/shadowapi-core:latest
-docker push ghcr.io/$ORG/shadowapi-core:$VERSION
-docker push ghcr.io/$ORG/shadowapi-core:latest
+docker build -t ghcr.io/$ORG/noctisapi-core:$VERSION .
+docker tag ghcr.io/$ORG/noctisapi-core:$VERSION ghcr.io/$ORG/noctisapi-core:latest
+docker push ghcr.io/$ORG/noctisapi-core:$VERSION
+docker push ghcr.io/$ORG/noctisapi-core:latest
 ```
 
 ## VPS Deployment
@@ -122,7 +122,7 @@ See `documentation/ops/vps/DEPLOY.md` for a step-by-step production runbook.
 Recommended layout:
 
 ```
-/opt/shadowapi-core/
+/opt/noctisapi-core/
 +-- compose/
    +-- docker-compose.prod.yml
 +-- backup_sqlite.sh
@@ -137,7 +137,7 @@ Steps:
    - `HP_DB_PATH=/data/honeypot.db`
    - `DATABASE_URL=sqlite+pysqlite:////data/honeypot.db`
    - `LOG_LEVEL=info`
-   - `HP_PUBLIC_BASE_URL=<https://public-domain>` (used in download URLs exposed by the ShadowAPI honeypot API)
+   - `HP_PUBLIC_BASE_URL=<https://public-domain>` (used in download URLs exposed by the NoctisAPI honeypot API)
    - `HP_GEOIP_DB=/app/data/GeoLite2-Country.mmdb`
    - `HP_SEED=<long random secret>` (stable seed for actor ids + secrets)
    - `HP_CAMPAIGN_MIN_FEATURES=4`
@@ -151,7 +151,7 @@ Steps:
 3. Run:
 
 ```
-cd /opt/shadowapi-core
+cd /opt/noctisapi-core
 docker compose -f compose/docker-compose.prod.yml --env-file .env.prod pull
 docker compose -f compose/docker-compose.prod.yml --env-file .env.prod up -d
 ```

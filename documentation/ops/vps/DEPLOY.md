@@ -1,4 +1,4 @@
-# ShadowAPI VPS Deployment (Ubuntu 22.04+)
+# NoctisAPI VPS Deployment (Ubuntu 22.04+)
 
 This is a concrete, repeatable deployment flow for a single VPS with Docker + Traefik (ACME).
 
@@ -33,9 +33,9 @@ sudo ufw --force enable
 ## 2. App Layout
 
 ```bash
-sudo mkdir -p /opt/shadowapi-core
-sudo chown -R $USER:$USER /opt/shadowapi-core
-cd /opt/shadowapi-core
+sudo mkdir -p /opt/noctisapi-core
+sudo chown -R $USER:$USER /opt/noctisapi-core
+cd /opt/noctisapi-core
 ```
 
 Copy the repo here (git clone or rsync).
@@ -77,19 +77,19 @@ The admin panel is exposed via Traefik on `HP_ADMIN_HOST`.
 
 ## 6. systemd (optional)
 
-Enable auto-start with the unit file in `ops/vps/shadowapi-core.service`:
+Enable auto-start with the unit file in `ops/vps/noctisapi-core.service`:
 
 ```bash
-sudo cp ops/vps/shadowapi-core.service /etc/systemd/system/shadowapi-core.service
+sudo cp ops/vps/noctisapi-core.service /etc/systemd/system/noctisapi-core.service
 sudo systemctl daemon-reload
-sudo systemctl enable --now shadowapi-core.service
-sudo systemctl status shadowapi-core.service
+sudo systemctl enable --now noctisapi-core.service
+sudo systemctl status noctisapi-core.service
 ```
 
 ## 7. Backups
 
-Configure the cron from `ops/cron/shadowapi-core-backup` and point it to:
+Configure the cron from `ops/cron/noctisapi-core-backup` and point it to:
 
-- `BACKUP_DIR=/var/backups/shadowapi-core`
+- `BACKUP_DIR=/var/backups/noctisapi-core`
 - `DATA_VOLUME=hp_prod_data`
 - `APP_DB_PATH=/data/honeypot.db`

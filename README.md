@@ -1,6 +1,6 @@
-﻿# ShadowAPI Core
+﻿# NoctisAPI Core
 
-ShadowAPI Core is a compact deception platform that exposes a realistic public API surface and an internal admin panel for observing, scoring, and grouping attacker behavior. It is designed for safe, non-executing interaction while providing rich telemetry for analysis.
+NoctisAPI Core is a compact deception platform that exposes a realistic public API surface and an internal admin panel for observing, scoring, and grouping attacker behavior. It is designed for safe, non-executing interaction while providing rich telemetry for analysis.
 
 ## What is included
 - Public honeypot API with staged behavior and consistent synthetic data

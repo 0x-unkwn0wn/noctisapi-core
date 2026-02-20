@@ -1124,7 +1124,7 @@ async def status(request: Request):
     actor = _actor_id_from_request(request)
     payload = {
         "status": "ok",
-        "service": "shadowapi",
+        "service": "noctisapi",
         "instance": actor[:12],
         "version": APP_VERSION,
     }
@@ -1398,7 +1398,7 @@ async def recon_env(request: Request):
             "DB_USER=platform_svc",
             "DB_PASSWORD=SuperSecret123!",
             "JWT_ISSUER=https://example.com",
-            "JWT_AUDIENCE=shadowapi",
+            "JWT_AUDIENCE=noctisapi",
             "JWT_SECRET=dev_only_change_me",
             "REDIS_URL=redis://10.12.0.9:6379/0",
             "S3_BUCKET=platform-assets",
@@ -1422,12 +1422,12 @@ async def recon_config(request: Request):
     )
     return JSONResponse(
         {
-            "service": "shadowapi",
+            "service": "noctisapi",
             "region": "eu-west-1",
             "auth": {
                 "issuer": "https://example.com",
                 "jwks": "/.well-known/jwks.json",
-                "audience": "shadowapi",
+                "audience": "noctisapi",
             },
             "features": {"beta_access": True, "sandbox_mode": False, "webhooks": True},
             "contact": {"support": "support@example.com"},
