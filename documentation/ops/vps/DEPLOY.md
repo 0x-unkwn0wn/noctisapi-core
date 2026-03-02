@@ -50,6 +50,7 @@ Edit `.env.prod` and set:
 - `HP_ADMIN_HOST=<admin-host>`
 - `ACME_EMAIL=<you@example.com>`
 - `HP_SEED` to a long random secret.
+- `HP_MONITOR_SECRET` to a random secret (must match the value Traefik injects in `x-internal-monitor`; leave empty to disable monitor bypass).
 - `HP_GEOIP_DB=/app/data/GeoLite2-Country.mmdb` (keep default unless you move it).
 
 ## 4. TLS (Traefik + ACME)

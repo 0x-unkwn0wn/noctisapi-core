@@ -1,5 +1,7 @@
 # honeypot_public.py
+import logging
 import os
+import sys
 import json
 import hashlib
 import secrets
@@ -13,10 +15,11 @@ import random
 import re
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any, Tuple, List
-import sys
+
+_logger = logging.getLogger(__name__)
 
 from fastapi import FastAPI, Request, HTTPException, Depends, Security
-from fastapi.responses import JSONResponse, PlainTextResponse, HTMLResponse
+from fastapi.responses import JSONResponse, PlainTextResponse, HTMLResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
@@ -31,6 +34,8 @@ HP_REQUIRE_SEED = (os.getenv("HP_REQUIRE_SEED", "") or "").strip().lower() in ("
 HONEYPOT_MONITOR_UA = os.getenv("HONEYPOT_MONITOR_UA", "HealthCheck/1.0")
 HP_PUBLIC_BASE_URL = os.getenv("HP_PUBLIC_BASE_URL", "http://127.0.0.1:8080").rstrip("/")
 HP_ACTOR_UA_MODE = os.getenv("HP_ACTOR_UA_MODE", "family").strip().lower()
+# Monitor bypass requires a secret; if unset the bypass is disabled entirely.
+_HP_MONITOR_SECRET = os.getenv("HP_MONITOR_SECRET", "").strip()
 
 SAMPLE_FILE_ID = "sample"
 SAMPLE_FILE_NAME = "sample.bin"
@@ -131,8 +136,19 @@ def _utc_now_iso() -> str:
 
 
 def _db() -> sqlite3.Connection:
-    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False, timeout=5.0, isolation_level="IMMEDIATE")
     conn.row_factory = sqlite3.Row
+    pragma_statements = (
+        "PRAGMA journal_mode=WAL;",
+        "PRAGMA synchronous=NORMAL;",
+        "PRAGMA busy_timeout=5000;",
+        "PRAGMA temp_store=MEMORY;",
+    )
+    for stmt in pragma_statements:
+        try:
+            conn.execute(stmt)
+        except Exception:
+            continue
     return conn
 
 
@@ -195,7 +211,12 @@ def _normalize_ua(ua: str) -> str:
     return "other"
 
 def _is_monitor(req: Request) -> bool:
-    return (req.headers.get("x-internal-monitor") or "").strip() == "1"
+    if not _HP_MONITOR_SECRET:
+        return False
+    return secrets.compare_digest(
+        (req.headers.get("x-internal-monitor") or "").strip(),
+        _HP_MONITOR_SECRET,
+    )
 
 
 def _require_feature(feature: licensing.Feature) -> None:
@@ -469,7 +490,7 @@ def _insert_event(
     extra: Optional[Dict[str, Any]] = None,
     points_delta: Optional[int] = None,
     trap_flags: Optional[List[str]] = None,
-) -> None:
+) -> Optional[int]:
     # auto-migration for old DBs
     cols = [r[1] for r in conn.execute("PRAGMA table_info(events)").fetchall()]
     if "status" not in cols:
@@ -560,6 +581,7 @@ def _insert_event(
             """,
             (ts, actor_id, kind, path, method, ip, ua, int(status), body_sample, token, extra_json),
         )
+        event_id: Optional[int] = cur.lastrowid
 
         # insert session_step
         seq_row = cur.execute("SELECT COALESCE(MAX(seq),0) AS m FROM session_steps WHERE session_id=?", (session_id,)).fetchone()
@@ -591,14 +613,15 @@ def _insert_event(
         )
 
         conn.commit()
+        return event_id
     except Exception as e:
         # Log error but never fail the public API
-        import sys
-        print(f"[WARNING] Session bookkeeping error: {e}", file=sys.stderr)
+        _logger.warning("Session bookkeeping error: %s", e)
         try:
             conn.rollback()
         except Exception:
             pass
+    return None
 
 
 def _token_lookup(conn: sqlite3.Connection, token: str) -> Optional[sqlite3.Row]:
@@ -975,6 +998,15 @@ async def log_all_requests(request: Request, call_next):
             skip_log = True
         if _is_monitor(request):
             skip_log = True
+        # Skip internal probes identified by User-Agent (e.g. Docker healthchecks).
+        # HONEYPOT_MONITOR_UA can be a comma-separated list of substrings.
+        if not skip_log and HONEYPOT_MONITOR_UA:
+            req_ua_lower = _user_agent(request).lower()
+            for _mua in HONEYPOT_MONITOR_UA.split(","):
+                _mua = _mua.strip().lower()
+                if _mua and _mua in req_ua_lower:
+                    skip_log = True
+                    break
 
         if not skip_log:
             latency_ms = int((time.perf_counter() - t0) * 1000.0)

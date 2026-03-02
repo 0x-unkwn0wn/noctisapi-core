@@ -55,6 +55,7 @@ This runbook covers:
      - `HONEYPOT_PUBLIC_BASE_URL=https://<SUBDOMAIN>.duckdns.org` (public URL shown in admin)
     - `HONEYPOT_MONITOR_BASE_URL=http://traefik:8081` (internal monitor URL, no dashboard noise)
     - `HP_SEED=<long random secret>` (stable actor IDs + secrets)
+    - `HP_MONITOR_SECRET=<random secret>` (avoid local noise checks)
     - `HP_REQUIRE_SEED=1` (optional, fail startup if HP_SEED is missing/placeholder)
     - `HP_ACTOR_UA_MODE=family` (recommended; `ip` or `full` also supported)
     - `HP_PUBLIC_RATELIMIT_AVG=120` / `HP_PUBLIC_RATELIMIT_BURST=240` (optional; Traefik rate limit)

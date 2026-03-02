@@ -1,4 +1,5 @@
 # panel_mvp.py (sin auth, solo protegido por SSH tunnel)
+import logging
 import os
 import time
 import threading
@@ -16,6 +17,8 @@ from typing import Optional
 
 from app import status_checks
 from app.honeypot_monitor import HoneypotAvailabilityMonitor, get_history as hp_get_history, get_summary as hp_get_summary
+
+_logger = logging.getLogger(__name__)
 
 APP_NAME = "noctisapi-panel"
 DB_PATH = os.getenv("HP_DB_PATH", "/data/honeypot.db")
@@ -65,11 +68,13 @@ def _env_float(name: str, default: float, min_value: Optional[float] = None) -> 
 
 
 def _is_cache_fresh(cache_ts: str, last_seen: str) -> bool:
+    """Cache is fresh when it was written after (or at) the actor's last activity."""
     cache_dt = _parse_iso(cache_ts)
     last_dt = _parse_iso(last_seen)
+    # If last_seen is unknown we can't safely use the cache.
     if not cache_dt or not last_dt:
         return False
-    return cache_dt >= last_dt
+    return cache_dt > last_dt
 
 
 def db() -> sqlite3.Connection:

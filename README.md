@@ -42,7 +42,9 @@ See `documentation/ops/vps/RUNBOOK.md` for a step-by-step VPS deployment with Tr
 ## Notes
 - Do not commit real secrets or GeoLite2 database files.
 - Use `.env.prod` on the server and keep it out of Git.
-- For admin views, set `HONEYPOT_PUBLIC_BASE_URL=https://<public-domain>` and `HONEYPOT_MONITOR_BASE_URL=http://traefik:8081`.
+- For the public API download URLs, set `HP_PUBLIC_BASE_URL=https://<public-domain>`.
+- For admin views and availability monitoring, set `HONEYPOT_PUBLIC_BASE_URL=https://<public-domain>` and `HONEYPOT_MONITOR_BASE_URL=http://traefik:8081`.
+- Set `HP_MONITOR_SECRET` to a random secret shared with Traefik (injected as `x-internal-monitor` header) so internal healthcheck traffic is not logged as actor activity.
 
 ## License
 Apache-2.0

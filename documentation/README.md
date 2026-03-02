@@ -140,13 +140,7 @@ Steps:
    - `HP_PUBLIC_BASE_URL=<https://public-domain>` (used in download URLs exposed by the NoctisAPI honeypot API)
    - `HP_GEOIP_DB=/app/data/GeoLite2-Country.mmdb`
    - `HP_SEED=<long random secret>` (stable seed for actor ids + secrets)
-   - `HP_CAMPAIGN_MIN_FEATURES=4`
-   - `HP_CAMPAIGN_MIN_INTERSECTION=3`
-   - `HP_CAMPAIGN_MIN_JACCARD=0.4`
-   - `HP_CAMPAIGN_MAX_SESSIONS=5`
-   - `HP_CAMPAIGN_PATH_NGRAM_TOP_K=12`
-   - `HP_CAMPAIGN_PATH_TOP_K=10`
-   - `HP_CAMPAIGN_ACTOR_LIMIT=200`
+   - `HP_MONITOR_SECRET=<random secret>` (injected by Traefik into `x-internal-monitor` header; skip logging for internal probes)
 2. Ensure `.env.prod` includes `HP_PUBLIC_HOST` and `ACME_EMAIL` for Traefik.
 3. Run:
 

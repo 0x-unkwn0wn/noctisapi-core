@@ -7,7 +7,7 @@ docker compose build --no-cache
 docker compose up -d
 ```
 
-- Open panel (SSH tunnel or local): http://127.0.0.1:8080/
+- Open panel (SSH tunnel or local): http://127.0.0.1:9001/
 
 Sessions
 - View sessions for actor:
