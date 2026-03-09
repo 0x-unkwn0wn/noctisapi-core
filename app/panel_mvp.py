@@ -9,14 +9,16 @@ from collections import Counter
 from statistics import median
 from datetime import datetime, timezone
 
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, Body
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from typing import Optional
 
 from app import status_checks
+from app import licensing
 from app.honeypot_monitor import HoneypotAvailabilityMonitor, get_history as hp_get_history, get_summary as hp_get_summary
+from app.server_config import RequestTimeoutMiddleware, get_request_timeout
 
 _logger = logging.getLogger(__name__)
 
@@ -25,8 +27,14 @@ DB_PATH = os.getenv("HP_DB_PATH", "/data/honeypot.db")
 HP_GEOIP_DB = os.getenv("HP_GEOIP_DB", "/data/GeoLite2-Country.mmdb")
 
 app = FastAPI(title=APP_NAME)
+app.add_middleware(RequestTimeoutMiddleware, timeout=get_request_timeout())
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
+templates.env.globals.update(licensing.feature_flags())
+
+
+def _license_context() -> dict:
+    return licensing.feature_flags()
 
 
 
@@ -100,6 +108,25 @@ honeypot_monitor = HoneypotAvailabilityMonitor(db)
 
 @app.on_event("startup")
 def _start_background_tasks():
+    import os as _os
+    from app.system_settings import load_settings_overrides, ensure_settings_table
+
+    _conn = db()
+    try:
+        ensure_settings_table(_conn)
+        _overrides = load_settings_overrides(_conn)
+        for _k, _v in _overrides.items():
+            _os.environ[_k] = _v
+        if _overrides:
+            _logger.info("startup: applied %d config overrides from DB", len(_overrides))
+    finally:
+        _conn.close()
+
+    from app.egress import check_egress_hosts
+    from app.diagnostics import run_diagnostics
+
+    check_egress_hosts()
+    run_diagnostics()
     honeypot_monitor.start()
 
 
@@ -593,7 +620,7 @@ def actor_sessions(actor_id: str, request: Request):
             "sessions": rows,
             "debug": {"event_count": event_count, "sessions_count": len(rows)},
         }
-                        return templates.TemplateResponse("actor_sessions.html", context)
+        return templates.TemplateResponse("actor_sessions.html", context)
     finally:
         conn.close()
 
@@ -792,3 +819,97 @@ def actor(actor_id: str, request: Request):
         )
     finally:
         conn.close()
+
+
+def _mask_proxy_password(value: str) -> str:
+    import re
+
+    return re.sub(r"(https?://[^:@/]+:)[^@/]+(@)", r"\1***\2", value)
+
+
+def _get_env_config(db_overrides: dict[str, str]) -> list[dict]:
+    from app.system_settings import KEY_GROUPS, KEY_LABELS
+
+    groups = []
+    for group_name, keys in KEY_GROUPS:
+        rows = []
+        for key in keys:
+            db_val = db_overrides.get(key, "")
+            env_val = os.environ.get(key, "")
+            if db_val:
+                effective = db_val
+                source = "override"
+            elif env_val:
+                effective = env_val
+                source = "env"
+            else:
+                effective = ""
+                source = "default"
+            display = _mask_proxy_password(effective) if effective else ""
+            rows.append(
+                {
+                    "key": key,
+                    "label": KEY_LABELS.get(key, key),
+                    "effective": display,
+                    "source": source,
+                    "db_value": db_val,
+                    "env_value": env_val,
+                }
+            )
+        groups.append({"name": group_name, "rows": rows})
+    return groups
+
+
+@app.get("/dashboard/environment", response_class=HTMLResponse)
+async def environment_page(request: Request):
+    from app.system_settings import load_all_settings, ensure_settings_table
+
+    conn = db()
+    try:
+        ensure_settings_table(conn)
+        db_overrides = load_all_settings(conn)
+    finally:
+        conn.close()
+    config_groups = _get_env_config(db_overrides)
+    return templates.TemplateResponse(
+        "environment.html",
+        {
+            "request": request,
+            "config_groups": config_groups,
+            **_license_context(),
+        },
+    )
+
+
+@app.post("/dashboard/environment/settings")
+async def environment_save_setting(payload: dict = Body(...)):
+    from app.system_settings import save_setting, ensure_settings_table, _EDITABLE_KEYS
+
+    key = str(payload.get("key") or "").strip()
+    value = str(payload.get("value") or "").strip()
+    if not key or key not in _EDITABLE_KEYS:
+        raise HTTPException(status_code=400, detail=f"Key {key!r} is not editable")
+    conn = db()
+    try:
+        ensure_settings_table(conn)
+        save_setting(conn, key, value)
+    finally:
+        conn.close()
+    return JSONResponse({"ok": True, "restart_required": True})
+
+
+@app.post("/dashboard/environment/diagnostics")
+async def environment_run_diagnostics():
+    from app.diagnostics import run_diagnostics
+
+    diag_results = run_diagnostics()
+    hidden_labels = {"outbound HTTPS", "proxy"}
+    filtered = [r for r in diag_results if str(r.label or "") not in hidden_labels]
+    return JSONResponse(
+        {
+            "diagnostics": [
+                {"label": r.label, "status": r.status, "detail": r.detail}
+                for r in filtered
+            ],
+        }
+    )

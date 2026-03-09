@@ -18,7 +18,7 @@ services:
       - ../.env.prod
     environment:
       - PYTHONPATH=/app
-    command: ["uvicorn", "app.honeypot_public:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips=127.0.0.1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"]
+    command: ["python", "main.py"]
     volumes:
       - hp_prod_data:/data
       - ../data/GeoLite2-Country.mmdb:/app/data/GeoLite2-Country.mmdb:ro
@@ -66,7 +66,7 @@ services:
       - ../.env.prod
     environment:
       - PYTHONPATH=/app
-    command: ["uvicorn", "app.panel_mvp:app", "--host", "0.0.0.0", "--port", "9001", "--proxy-headers", "--forwarded-allow-ips=127.0.0.1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"]
+    command: ["python", "main_panel.py"]
     volumes:
       - hp_prod_data:/data
       - ../data/GeoLite2-Country.mmdb:/app/data/GeoLite2-Country.mmdb:ro

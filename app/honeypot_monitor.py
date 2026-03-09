@@ -8,6 +8,9 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import httpx
 
+from app.proxy_config import build_httpx_mounts
+from app.tls_config import get_ssl_context
+
 HoneypotDBFactory = Callable[[], sqlite3.Connection]
 
 HONEYPOT_PUBLIC_BASE_URL = os.getenv("HONEYPOT_PUBLIC_BASE_URL", "").strip().rstrip("/")
@@ -312,7 +315,13 @@ class HoneypotAvailabilityMonitor:
         if not self.configured:
             raise RuntimeError("HONEYPOT_MONITOR_BASE_URL/HONEYPOT_PUBLIC_BASE_URL are not configured")
 
-        with httpx.Client(timeout=self.timeout, follow_redirects=True) as client:
+        ssl_ctx = get_ssl_context()
+        with httpx.Client(
+            timeout=self.timeout,
+            follow_redirects=True,
+            verify=ssl_ctx,
+            mounts=build_httpx_mounts(ssl_ctx),
+        ) as client:
             ctx = self._prepare_context(client)
             if endpoint:
                 check = self._resolve_check(endpoint)

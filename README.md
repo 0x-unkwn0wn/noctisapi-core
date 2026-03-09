@@ -8,10 +8,12 @@ NoctisAPI Core is a compact deception platform that exposes a realistic public A
 - GeoIP flags (MaxMind GeoLite2)
 - Availability monitoring
 - Admin panel: actors, sessions, API health
+- Admin panel: environment settings + diagnostics
 - Basic scoring and stages
 - Bulk actor management
 - Retention pruning and backup script
 - Docker + Traefik deploy
+- Trusted proxy IP resolution, reverse-proxy URL handling, TLS/proxy-aware egress checks, request timeout middleware, and structured logging support
 
 ## Repository layout
 - `app/` core services (public API, admin panel, monitor, health)
@@ -23,7 +25,7 @@ NoctisAPI Core is a compact deception platform that exposes a realistic public A
 
 ## Quick start (dev)
 ```bash
-cp .env.dev .env.dev
+cp .env.prod.example .env.dev
 docker compose -f compose/docker-compose.dev.yml up --build
 ```
 

@@ -1,0 +1,330 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+  /* ── Layout ── */
+  .env-section {
+    margin-top: 24px;
+    padding: 0 24px;
+  }
+  .env-section-last { padding-bottom: 20px; }
+  .env-section-title {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--muted);
+    margin-bottom: 4px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--stroke);
+  }
+
+  .env-row {
+    display: grid;
+    grid-template-columns: 200px 1fr 110px;
+    align-items: start;
+    gap: 0 20px;
+    padding: 14px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  .env-row:last-child { border-bottom: none; }
+
+  /* ── Label column ── */
+  .env-label {
+    padding-top: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+  .env-label .key-name {
+    display: block;
+    font-family: monospace;
+    font-size: 0.76rem;
+    color: var(--muted);
+    font-weight: 400;
+    margin-top: 2px;
+  }
+
+  /* ── Input + sub-info column ── */
+  .env-field { display: flex; flex-direction: column; gap: 6px; }
+  .env-field input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 6px 10px;
+    border: 1px solid var(--stroke);
+    background: var(--panel2);
+    color: var(--text);
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 0.84rem;
+    transition: border-color 0.15s;
+  }
+  .env-field input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .env-field input::placeholder { color: var(--muted); opacity: 0.7; }
+
+  .env-sub {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    font-size: 0.76rem;
+    color: var(--muted);
+    min-height: 18px;
+  }
+  .env-effective {
+    font-family: monospace;
+    font-size: 0.76rem;
+    color: var(--muted);
+    word-break: break-all;
+  }
+
+  /* ── Buttons column ── */
+  .env-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-top: 2px;
+  }
+  .env-actions .btn {
+    width: 100%;
+    font-size: 0.8rem;
+    padding: 5px 0;
+    text-align: center;
+  }
+
+  /* ── Badges ── */
+  .badge {
+    display: inline-block;
+    padding: 1px 7px;
+    border-radius: 999px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    flex-shrink: 0;
+  }
+  .badge-override { background: rgba(255,179,0,.15); color: #ffc940; }
+  .badge-env      { background: rgba(74,144,226,.15); color: #7ab8f5; }
+  .badge-default  { background: rgba(255,255,255,.06); color: var(--muted); }
+
+  /* ── Feedback ── */
+  .save-feedback { color: #7ee2b8; display: none; font-size: 0.76rem; }
+  .save-feedback.visible { display: inline; }
+  .err-feedback  { color: #f2a6a6; display: none; font-size: 0.76rem; word-break: break-all; }
+  .err-feedback.visible  { display: inline; }
+
+  /* ── Restart banner ── */
+  .restart-banner {
+    display: none;
+    align-items: center;
+    gap: 10px;
+    background: rgba(255,179,0,.08);
+    border: 1px solid rgba(255,179,0,.3);
+    border-radius: 6px;
+    padding: 11px 16px;
+    font-size: 0.87rem;
+    color: #ffc940;
+    margin-bottom: 20px;
+  }
+  .restart-banner.visible { display: flex; }
+
+  /* ── Diagnostics ── */
+  .diag-row {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    padding: 9px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  .diag-row:last-child { border-bottom: none; }
+  .diag-tag {
+    font-family: monospace;
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 4px;
+    min-width: 64px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+  .diag-tag-ok    { background: rgba(26,191,107,.15); color: #7ee2b8; }
+  .diag-tag-warn  { background: rgba(255,179,0,.15);  color: #ffc940; }
+  .diag-tag-error { background: rgba(231,76,60,.15);  color: #f2a6a6; }
+  .diag-label  { font-weight: 600; font-size: 0.87rem; white-space: nowrap; }
+  .diag-detail { font-size: 0.8rem; color: var(--muted); font-family: monospace; word-break: break-all; }
+  .diag-placeholder { color: var(--muted); font-size: 0.85rem; padding: 14px 0; }
+
+</style>
+
+<div class="page-head">
+  <div>
+    <h1>Environment</h1>
+    <div class="sub">TLS, logging and runtime configuration &middot; live diagnostics</div>
+  </div>
+</div>
+
+<!-- Restart banner -->
+<div class="restart-banner" id="restart-banner">
+  <span style="font-size:1.1rem;">⚠</span>
+  <span>Changes saved. <strong>Restart the container</strong> to apply them.</span>
+</div>
+
+<!-- ── Diagnostics ──────────────────────────────────────────────────────── -->
+<div class="card">
+  <div class="card-head">
+    <div class="card-title">Live Diagnostics</div>
+    <button class="btn" id="run-diag-btn" onclick="runDiagnostics()">Run Diagnostics</button>
+  </div>
+
+  <div id="diag-results" style="padding:0 24px;">
+    <div class="diag-placeholder">Click "Run Diagnostics" to check DNS and TLS trust store.</div>
+  </div>
+</div>
+
+<!-- ── Configuration ────────────────────────────────────────────────────── -->
+<div class="card" style="margin-top:20px;">
+  <div class="card-head">
+    <div class="card-title">Configuration</div>
+    <div class="muted" style="font-size:0.8rem;">Saved to DB · restart required to apply</div>
+  </div>
+
+  {% for group in config_groups %}
+  <div class="env-section {% if loop.last %}env-section-last{% endif %}">
+    <div class="env-section-title">{{ group.name }}</div>
+    {% for row in group.rows %}
+    <div class="env-row" data-key="{{ row.key }}">
+
+      <!-- Label -->
+      <div class="env-label">
+        {{ row.label }}
+        <span class="key-name">{{ row.key }}</span>
+      </div>
+
+      <!-- Input + sub info -->
+      <div class="env-field">
+        <input
+          type="text"
+          id="input-{{ row.key }}"
+          value="{{ row.db_value }}"
+          placeholder="{{ row.effective if row.effective else 'not set' }}"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <div class="env-sub">
+          <span class="badge badge-{{ row.source }}">{{ row.source }}</span>
+          {% if row.effective %}
+            <span class="env-effective">{{ row.effective }}</span>
+          {% else %}
+            <span style="font-style:italic;opacity:.5;font-size:0.75rem;">not set</span>
+          {% endif %}
+          <span class="save-feedback" id="ok-{{ row.key }}">&#10003; saved</span>
+          <span class="err-feedback"  id="err-{{ row.key }}"></span>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="env-actions">
+        <button class="btn btn-sm" onclick="saveSetting('{{ row.key }}')">Save</button>
+        <button class="btn btn-sm btn-ghost" onclick="clearSetting('{{ row.key }}')">Clear</button>
+      </div>
+
+    </div>
+    {% endfor %}
+  </div>
+  {% endfor %}
+</div>
+
+<script>
+function runDiagnostics() {
+  const btn = document.getElementById('run-diag-btn');
+  btn.disabled = true;
+  btn.textContent = 'Running…';
+  const diagEl = document.getElementById('diag-results');
+  diagEl.innerHTML = '<div class="diag-placeholder">Running checks…</div>';
+
+  fetch('/dashboard/environment/diagnostics', { method: 'POST' })
+    .then(r => r.json())
+    .then(data => {
+      renderDiagnostics(data.diagnostics || []);
+    })
+    .catch(err => {
+      diagEl.innerHTML = '<div class="diag-placeholder" style="color:#f2a6a6">Request failed: ' + escHtml(String(err)) + '</div>';
+    })
+    .finally(() => {
+      btn.disabled = false;
+      btn.textContent = 'Run Diagnostics';
+    });
+}
+
+function renderDiagnostics(results) {
+  const el = document.getElementById('diag-results');
+  if (!results.length) { el.innerHTML = '<div class="diag-placeholder">No results.</div>'; return; }
+  el.innerHTML = results.map(r => {
+    const cls = 'diag-tag-' + r.status;
+    const tag = r.status === 'ok' ? '[OK]' : r.status === 'warn' ? '[WARN]' : '[ERROR]';
+    const detail = r.detail ? `<span class="diag-detail">&mdash; ${escHtml(r.detail)}</span>` : '';
+    return `<div class="diag-row">
+      <span class="diag-tag ${cls}">${tag}</span>
+      <span class="diag-label">${escHtml(r.label)}</span>
+      ${detail}
+    </div>`;
+  }).join('');
+}
+
+function saveSetting(key) {
+  _postSetting(key, document.getElementById('input-' + key).value.trim());
+}
+
+function clearSetting(key) {
+  document.getElementById('input-' + key).value = '';
+  _postSetting(key, '');
+}
+
+function _postSetting(key, value) {
+  const okEl  = document.getElementById('ok-'  + key);
+  const errEl = document.getElementById('err-' + key);
+  okEl.classList.remove('visible');
+  errEl.classList.remove('visible');
+
+  fetch('/dashboard/environment/settings', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ key, value }),
+  })
+    .then(r => r.json())
+    .then(data => {
+      if (data.ok) {
+        okEl.classList.add('visible');
+        setTimeout(() => okEl.classList.remove('visible'), 3000);
+        document.getElementById('restart-banner').classList.add('visible');
+        const row = document.querySelector('.env-row[data-key="' + key + '"]');
+        if (row) {
+          const badge = row.querySelector('.badge');
+          if (badge) {
+            badge.className = 'badge badge-' + (value ? 'override' : 'env');
+            badge.textContent = value ? 'override' : 'env';
+          }
+          const effEl = row.querySelector('.env-effective');
+          if (effEl) effEl.textContent = value;
+        }
+      } else {
+        errEl.textContent = data.detail || 'error';
+        errEl.classList.add('visible');
+      }
+    })
+    .catch(err => {
+      errEl.textContent = String(err);
+      errEl.classList.add('visible');
+    });
+}
+
+function escHtml(s) {
+  return String(s || '')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+</script>
+
+{% endblock %}

@@ -24,6 +24,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 from app import licensing
+from app.trusted_proxy import resolve_client_ip
+from app.reverse_proxy import ReverseProxyMiddleware, get_static_public_base_url
+from app import health as _health
+from app.server_config import RequestTimeoutMiddleware, get_request_timeout
+from app.structured_logging import set_request_id
 
 APP_TITLE = os.getenv("HP_API_TITLE", "Account Service API")
 APP_VERSION = os.getenv("HP_API_VERSION", "1.0.0")
@@ -100,6 +105,8 @@ tags_metadata = [
     {"name": "Export", "description": "Export jobs"},
 ]
 
+_static_public_url = get_static_public_base_url()
+
 app = FastAPI(
     title=APP_TITLE,
     version=APP_VERSION,
@@ -107,6 +114,7 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
     openapi_url="/openapi.json",
+    servers=[{"url": _static_public_url, "description": "Public API"}] if _static_public_url else None,
 )
 
 app.add_middleware(
@@ -116,6 +124,8 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
+app.add_middleware(ReverseProxyMiddleware)
+app.add_middleware(RequestTimeoutMiddleware, timeout=get_request_timeout())
 
 
 def _warn_if_default_seed() -> None:
@@ -129,6 +139,25 @@ def _warn_if_default_seed() -> None:
 @app.on_event("startup")
 async def _startup_checks() -> None:
     _warn_if_default_seed()
+    import os as _os
+    from app.system_settings import load_settings_overrides, ensure_settings_table
+
+    _conn = _db()
+    try:
+        ensure_settings_table(_conn)
+        _overrides = load_settings_overrides(_conn)
+        for _k, _v in _overrides.items():
+            _os.environ[_k] = _v
+        if _overrides:
+            _logger.info("startup: applied %d config overrides from DB", len(_overrides))
+    finally:
+        _conn.close()
+
+    from app.egress import check_egress_hosts
+    from app.diagnostics import run_diagnostics
+
+    check_egress_hosts()
+    run_diagnostics()
 
 
 def _utc_now_iso() -> str:
@@ -162,15 +191,7 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
 
 
 def _client_ip(req: Request) -> str:
-    xff = req.headers.get("x-forwarded-for")
-    if xff:
-        return xff.split(",")[0].strip()
-    xrip = req.headers.get("x-real-ip")
-    if xrip:
-        return xrip.strip()
-    if req.client and req.client.host:
-        return req.client.host
-    return "0.0.0.0"
+    return resolve_client_ip(req)
 
 
 def _user_agent(req: Request) -> str:
@@ -983,6 +1004,8 @@ async def _read_json_or_form(request: Request) -> Dict[str, Any]:
 @app.middleware("http")
 async def log_all_requests(request: Request, call_next):
     body = await request.body()
+    _request_id = (request.headers.get("x-request-id") or secrets.token_hex(16)).strip()[:128]
+    set_request_id(_request_id)
 
     t0 = time.perf_counter()
     response = None
@@ -1134,20 +1157,28 @@ async def log_all_requests(request: Request, call_next):
 
     if response is None:
         response = JSONResponse(status_code=500, content={"detail": "Internal Server Error"})
+    response.headers["X-Request-ID"] = _request_id
     return response
 
 
 @app.get("/health", tags=["Health"], response_class=JSONResponse)
 async def health(request: Request):
-    """Decoy health endpoint – returns fabricated status and never leaks real readiness data."""
-    actor = _actor_id_from_request(request)
-    fake_payload = {
-        "status": "ok",
-        "uptime": f"{secrets.randbelow(86400)}s",
-        "instance": actor[:12],
-        "version": f"public-{secrets.randbelow(9) + 1}.0",
-    }
-    return JSONResponse(fake_payload)
+    """Liveness check."""
+    return JSONResponse(_health.liveness())
+
+
+@app.get("/ready", tags=["Health"], response_class=JSONResponse)
+async def ready(request: Request):
+    """Readiness check (database + schema)."""
+    payload = _health.readiness(DB_PATH)
+    status_code = 200 if payload["status"] == "ok" else 503
+    return JSONResponse(payload, status_code=status_code)
+
+
+@app.get("/version", tags=["Health"], response_class=JSONResponse)
+async def version(request: Request):
+    """Version/build metadata."""
+    return JSONResponse(_health.version_info())
 
 
 @app.get("/status", tags=["Health"], response_class=JSONResponse)

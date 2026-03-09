@@ -19,6 +19,8 @@ services:
       dockerfile: Dockerfile
     env_file:
       - ../.env.dev
+    environment:
+      - UVICORN_RELOAD=1
     volumes:
       - ../:/app
       - hp_dev_data:/data
@@ -27,7 +29,7 @@ services:
         condition: service_completed_successfully
     ports:
       - "8000:8000"
-    command: ["uvicorn", "app.honeypot_public:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    command: ["python", "main.py"]
     healthcheck:
       test:
         ["CMD", "python", "scripts/check_app_ready.py"]
@@ -42,6 +44,8 @@ services:
       dockerfile: Dockerfile
     env_file:
       - ../.env.dev
+    environment:
+      - UVICORN_RELOAD=1
     volumes:
       - ../:/app
       - hp_dev_data:/data
@@ -50,7 +54,7 @@ services:
         condition: service_completed_successfully
     ports:
       - "127.0.0.1:9001:9001"
-    command: ["uvicorn", "app.panel_mvp:app", "--host", "0.0.0.0", "--port", "9001", "--reload"]
+    command: ["python", "main_panel.py"]
 
 volumes:
   hp_dev_data:
