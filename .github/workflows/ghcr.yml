@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+    tags:
+      - "v*"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -33,10 +36,11 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository_owner }}/noctisapi-core
+          images: ghcr.io/${{ github.repository_owner }}/shadowapi-core
           tags: |
             type=sha,format=short
             type=raw,value=latest
+            type=ref,event=tag
 
       - name: Build and push
         uses: docker/build-push-action@v5
