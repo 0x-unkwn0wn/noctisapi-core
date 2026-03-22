@@ -81,7 +81,7 @@
         {% for e in events %}
         <tr>
           <td class="muted" style="font-size:0.8rem;white-space:nowrap;">{{ e.ts[:19] if e.ts else "—" }}</td>
-          <td class="mono" style="font-size:0.8rem;">{{ e.ip or "—" }}</td>
+          <td class="mono" style="font-size:0.8rem;white-space:nowrap;">{{ e.ip or "—" }}</td>
           <td>
             <span class="kind-pill kind-critical">{{ e.kind }}</span>
             {% if e.scanner %}<span style="display:inline-block;padding:1px 5px;font-size:0.68rem;font-weight:700;background:rgba(189,86,255,.18);color:#bd56ff;border:1px solid rgba(189,86,255,.3);border-radius:3px;margin-left:4px;">SCANNER</span>{% endif %}
