@@ -20,9 +20,13 @@ Deploy a fake-but-convincing REST API surface. Every scanner, credential stuffer
 |---|---|
 | ![Dashboard](screenshots/dashboard.png) | ![Actors](screenshots/actors.png) |
 
-| API Config | API Health |
+| Actor Detail | Sessions |
 |---|---|
-| ![API Modular](screenshots/api_modular.png) | ![API Health](screenshots/api_health.png) |
+| ![Actor Detail](screenshots/Actor_detail.png) | ![Sessions](screenshots/sessions.png) |
+
+| API Health |
+|---|
+| ![API Health](screenshots/api_health.png) |
 
 ---
 
@@ -103,7 +107,7 @@ docker compose --env-file .env.prod -f compose/docker-compose.prod.yml up -d
 ### Local development
 
 ```bash
-git clone https://github.com/0x-unkwn0wn/noctisapi-core
+git clone https://github.com/noctisapi/noctisapi-core
 cd noctisapi-core
 docker compose -f compose/docker-compose.dev.yml up --build
 ```
@@ -264,7 +268,7 @@ The Core is a solid detection layer. PRO turns detections into actionable intell
 
 Bug reports, feature requests, and pull requests are welcome.
 
-- Open issues at [github.com/0x-unkwn0wn/noctisapi-core/issues](https://github.com/0x-unkwn0wn/noctisapi-core/issues)
+- Open issues at [github.com/noctisapi/noctisapi-core/issues](https://github.com/noctisapi/noctisapi-core/issues)
 - For questions or security reports: see [noctisapi.com](https://noctisapi.com)
 
 ---
