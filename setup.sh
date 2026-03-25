@@ -116,7 +116,7 @@ fi
 # Write .env.prod (skip if already exists)
 # ---------------------------------------------------------------------------
 if [[ -f "$ENV_FILE" ]]; then
-  info ".env.prod already exists — skipping (delete and re-run to reconfigure)"
+  info ".env.prod already exists — keeping existing config"
 else
   mkdir -p "${INSTALL_DIR}/data"
   cat > "$ENV_FILE" <<ENVEOF
@@ -133,6 +133,14 @@ LOG_LEVEL=info
 ENVEOF
   chmod 600 "$ENV_FILE"
   info ".env.prod written (mode 600)"
+fi
+
+# Always ensure HP_PANEL_TOKEN is present — add if missing, reuse if already set
+if grep -q "^HP_PANEL_TOKEN=" "$ENV_FILE" 2>/dev/null; then
+  HP_PANEL_TOKEN=$(grep "^HP_PANEL_TOKEN=" "$ENV_FILE" | cut -d= -f2-)
+else
+  echo "HP_PANEL_TOKEN=${HP_PANEL_TOKEN}" >> "$ENV_FILE"
+  info "HP_PANEL_TOKEN added to .env.prod"
 fi
 
 # ---------------------------------------------------------------------------
