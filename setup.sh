@@ -136,6 +136,17 @@ ENVEOF
 fi
 
 # ---------------------------------------------------------------------------
+# Ensure compose file exists (download if running via curl|bash)
+# ---------------------------------------------------------------------------
+if [[ ! -f "$COMPOSE_FILE" ]]; then
+  mkdir -p "$(dirname "$COMPOSE_FILE")"
+  info "Downloading docker-compose.prod.yml..."
+  curl -fsSL \
+    "https://raw.githubusercontent.com/noctisapi/noctisapi-core/main/compose/docker-compose.prod.yml" \
+    -o "$COMPOSE_FILE"
+fi
+
+# ---------------------------------------------------------------------------
 # Start
 # ---------------------------------------------------------------------------
 info "Starting NoctisAPI Core…"
