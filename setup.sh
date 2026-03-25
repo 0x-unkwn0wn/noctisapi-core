@@ -16,7 +16,13 @@
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+# When run via curl|bash, BASH_SOURCE[0] is not a real file — fall back to pwd
+_src="${BASH_SOURCE[0]:-}"
+if [[ -f "$_src" ]]; then
+  SCRIPT_DIR="$(cd "$(dirname "$_src")" && pwd)"
+else
+  SCRIPT_DIR="$(pwd)"
+fi
 INSTALL_DIR="${SCRIPT_DIR}"
 ENV_FILE="${INSTALL_DIR}/.env.prod"
 COMPOSE_FILE="${INSTALL_DIR}/compose/docker-compose.prod.yml"
