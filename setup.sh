@@ -89,6 +89,8 @@ echo ""
 
 HP_SEED=$(python3 -c "import secrets; print(secrets.token_hex(32))" 2>/dev/null \
           || openssl rand -hex 32)
+HP_PANEL_TOKEN=$(python3 -c "import secrets; print(secrets.token_hex(32))" 2>/dev/null \
+                 || openssl rand -hex 32)
 
 # ---------------------------------------------------------------------------
 # Summary + confirmation
@@ -126,6 +128,7 @@ DATABASE_URL=sqlite+pysqlite:////data/honeypot.db
 HP_PUBLIC_HOST=${HP_PUBLIC_HOST}
 ACME_EMAIL=${ACME_EMAIL}
 HP_SEED=${HP_SEED}
+HP_PANEL_TOKEN=${HP_PANEL_TOKEN}
 LOG_LEVEL=info
 ENVEOF
   chmod 600 "$ENV_FILE"
@@ -147,6 +150,7 @@ echo -e "${GREEN}${BOLD}NoctisAPI Core is running!${RESET}"
 echo ""
 echo -e "  API:         ${CYAN}https://${HP_PUBLIC_HOST}${RESET}"
 echo -e "  Admin panel: ${CYAN}http://127.0.0.1:9001${RESET}  (SSH tunnel: ssh -L 9001:localhost:9001 user@${HP_PUBLIC_HOST})"
+echo -e "  Panel token: ${BOLD}${HP_PANEL_TOKEN}${RESET}  ${YELLOW}(save this — it's your admin password)${RESET}"
 echo -e "  Logs:        ${CYAN}docker compose -f ${COMPOSE_FILE} --env-file ${ENV_FILE} logs -f app${RESET}"
 echo -e "  Stop:        ${CYAN}docker compose -f ${COMPOSE_FILE} --env-file ${ENV_FILE} down${RESET}"
 echo ""
