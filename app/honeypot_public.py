@@ -31,6 +31,9 @@ from app.server_config import RequestTimeoutMiddleware, get_request_timeout
 from app.structured_logging import set_request_id
 from app import alert_dispatcher
 from app import api_modular
+from app.geoip import close_reader as _close_geoip_reader
+from app.geoip import lookup_country as _lookup_geoip_country
+from app.geoip import warmup_reader as _warmup_geoip_reader
 
 APP_TITLE = os.getenv("HP_API_TITLE", "Account Service API")
 APP_VERSION = os.getenv("HP_API_VERSION", "1.0.0")
@@ -53,9 +56,6 @@ SAMPLE_FILE_NAME = "sample.bin"
 SAMPLE_FILE_BYTES = b"Sample payload\n"
 SAMPLE_FILE_SHA256 = hashlib.sha256(SAMPLE_FILE_BYTES).hexdigest()
 SAMPLE_JOB_ID = "sample"
-
-# GeoIP (optional). Provide a MaxMind GeoLite2 Country mmdb in this path.
-HP_GEOIP_DB = os.getenv("HP_GEOIP_DB", "/data/GeoLite2-Country.mmdb")
 
 SCANNER_UA_PATTERNS = (
     "sqlmap",
@@ -159,11 +159,18 @@ async def _startup_checks() -> None:
     finally:
         _conn.close()
 
+    _warmup_geoip_reader(logger=_logger)
+
     from app.egress import check_egress_hosts
     from app.diagnostics import run_diagnostics
 
     check_egress_hosts()
     run_diagnostics()
+
+
+@app.on_event("shutdown")
+async def _shutdown_tasks() -> None:
+    _close_geoip_reader()
 
 
 def _utc_now_iso() -> str:
@@ -364,32 +371,7 @@ def _flag_emoji_from_iso2(iso2: str) -> str:
 
 
 def _geoip_country(ip_s: str) -> Dict[str, Any]:
-    # Optional, returns {} if no DB or no match
-    if not _is_public_ip(ip_s):
-        return {}
-    if not HP_GEOIP_DB or not os.path.exists(HP_GEOIP_DB):
-        return {}
-
-    try:
-        import geoip2.database  # type: ignore
-    except Exception:
-        return {}
-
-    try:
-        reader = geoip2.database.Reader(HP_GEOIP_DB)
-        try:
-            resp = reader.country(ip_s)
-            iso = (resp.country.iso_code or "").strip().upper()
-            name = (resp.country.name or "").strip()
-            return {
-                "country_iso2": iso,
-                "country_name": name,
-                "flag": _flag_emoji_from_iso2(iso),
-            }
-        finally:
-            reader.close()
-    except Exception:
-        return {}
+    return _lookup_geoip_country(ip_s, logger=_logger)
 
 
 def _score_for(kind: str) -> int:
@@ -1462,6 +1444,44 @@ def _fake_transactions(actor_id: str, limit: int = 20, offset: int = 0) -> List[
     return txs
 
 
+def _fake_orders(actor_id: str, limit: int = 20, offset: int = 0) -> List[Dict[str, Any]]:
+    rng = _seeded_rng(actor_id, f"orders:{offset}")
+    orders = []
+    for _ in range(limit):
+        order_id = f"ord_{rng.randint(100000, 999999)}"
+        orders.append(
+            {
+                "id": order_id,
+                "status": rng.choice(["created", "processing", "shipped", "cancelled"]),
+                "currency": rng.choice(["USD", "EUR", "GBP"]),
+                "total": round(rng.uniform(12.0, 480.0), 2),
+                "customer_id": f"u_{rng.randint(10000, 99999)}",
+                "created_at": _utc_now_iso(),
+            }
+        )
+    return orders
+
+
+def _fake_order(actor_id: str, order_id: str) -> Dict[str, Any]:
+    rng = _seeded_rng(actor_id, f"order:{order_id}")
+    return {
+        "id": order_id,
+        "status": rng.choice(["created", "processing", "shipped", "cancelled"]),
+        "currency": rng.choice(["USD", "EUR", "GBP"]),
+        "total": round(rng.uniform(12.0, 480.0), 2),
+        "customer_id": f"u_{rng.randint(10000, 99999)}",
+        "line_items": [
+            {
+                "sku": f"sku_{rng.randint(100, 999)}",
+                "qty": rng.randint(1, 4),
+                "price": round(rng.uniform(4.0, 120.0), 2),
+            }
+            for _ in range(rng.randint(1, 3))
+        ],
+        "created_at": _utc_now_iso(),
+    }
+
+
 def _pagination_from_request(request: Request) -> Tuple[int, int, bool]:
     limit = int(request.query_params.get("limit", "20") or 20)
     offset = int(request.query_params.get("offset", "0") or 0)
@@ -2147,6 +2167,87 @@ async def business_users(request: Request):
         extra={"limit": limit, "offset": offset, "aggressive": aggressive},
     )
     return JSONResponse({"data": users, "next_offset": offset + limit})
+
+
+@app.get("/api/v1/users/{user_id}", tags=["Business"], response_class=JSONResponse)
+async def business_user_get(user_id: str, request: Request):
+    await _sleep_jitter()
+    actor_id = _actor_id_from_request(request)
+    if not _is_monitor(request):
+        _set_hp_event(
+            request,
+            kind="business_users",
+            points=3,
+            trap_flags=["business"],
+            extra={"user_id": user_id, "mode": "get"},
+        )
+    user = _fake_users(actor_id, 1, 0)[0]
+    user["id"] = user_id
+    return JSONResponse(user)
+
+
+@app.patch("/api/v1/users/{user_id}", tags=["Business"], response_class=JSONResponse)
+async def business_user_update(user_id: str, request: Request):
+    await _sleep_jitter()
+    payload = await _read_json_or_form(request)
+    if not _is_monitor(request):
+        _set_hp_event(
+            request,
+            kind="business_users",
+            points=4,
+            trap_flags=["business"],
+            extra={"user_id": user_id, "mode": "update", "keys": sorted(list(payload.keys()))[:8]},
+        )
+    return JSONResponse({"id": user_id, "status": "updated", "updated_fields": sorted(list(payload.keys()))})
+
+
+@app.get("/api/v1/orders", tags=["Business"], response_class=JSONResponse)
+async def business_orders(request: Request):
+    await _sleep_jitter()
+    limit, offset, aggressive = _pagination_from_request(request)
+    actor_id = _actor_id_from_request(request)
+    if not _is_monitor(request):
+        _set_hp_event(
+            request,
+            kind="business_reports",
+            points=3 + (3 if aggressive else 0),
+            trap_flags=["business"],
+            extra={"mode": "orders_list", "limit": limit, "offset": offset},
+        )
+    return JSONResponse({"data": _fake_orders(actor_id, limit, offset), "next_offset": offset + limit})
+
+
+@app.get("/api/v1/orders/{order_id}", tags=["Business"], response_class=JSONResponse)
+async def business_order_get(order_id: str, request: Request):
+    await _sleep_jitter()
+    actor_id = _actor_id_from_request(request)
+    if not _is_monitor(request):
+        _set_hp_event(
+            request,
+            kind="business_reports",
+            points=3,
+            trap_flags=["business"],
+            extra={"mode": "orders_get", "order_id": order_id},
+        )
+    return JSONResponse(_fake_order(actor_id, order_id))
+
+
+@app.post("/api/v1/orders", tags=["Business"], response_class=JSONResponse)
+async def business_order_create(request: Request):
+    await _sleep_jitter()
+    actor_id = _actor_id_from_request(request)
+    payload = await _read_json_or_form(request)
+    if not _is_monitor(request):
+        _set_hp_event(
+            request,
+            kind="business_reports",
+            points=4,
+            trap_flags=["business"],
+            extra={"mode": "orders_create", "keys": sorted(list(payload.keys()))[:8]},
+        )
+    order = _fake_order(actor_id, f"ord_{_seeded_rng(actor_id, 'orders:create').randint(100000, 999999)}")
+    order["status"] = "created"
+    return JSONResponse(status_code=201, content=order)
 
 
 @app.get("/api/v1/accounts", tags=["Business"], response_class=JSONResponse)

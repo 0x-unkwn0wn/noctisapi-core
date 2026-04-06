@@ -138,7 +138,7 @@ Steps:
    - `DATABASE_URL=sqlite+pysqlite:////data/honeypot.db`
    - `LOG_LEVEL=info`
    - `HP_PUBLIC_BASE_URL=<https://public-domain>` (used in download URLs exposed by the NoctisAPI honeypot API)
-   - `HP_GEOIP_DB=/app/data/GeoLite2-Country.mmdb`
+   - `HP_ASN_RESOLVER_URL=https://ipwho.is/{ip}` (optional geo resolver)
    - `HP_SEED=<long random secret>` (stable seed for actor ids + secrets)
    - `HP_MONITOR_SECRET=<random secret>` (injected by Traefik into `x-internal-monitor` header; skip logging for internal probes)
 2. Ensure `.env.prod` includes `HP_PUBLIC_HOST` and `ACME_EMAIL` for Traefik.
@@ -183,6 +183,5 @@ All production commands expect to execute on the server that hosts `.env.prod` a
 - The internal admin API (app/panel_mvp.py) serves the real /health and /ready endpoints, which verify SQLite connectivity and Alembic migrations.
 - Docker healthchecks for the app container call `python scripts/check_app_ready.py`, reusing status_checks.ensure_ready() to test the DB directly instead of hitting HTTP endpoints.
 - The admin console exposes a API Health page (see the navigation link) that pings the public /health endpoint from the server side and lets operators trigger manual re-checks.
-
 
 

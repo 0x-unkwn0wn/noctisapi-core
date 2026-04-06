@@ -74,7 +74,7 @@ nano .env.prod   # or vim
 | `HONEYPOT_MONITOR_UA` | `HealthCheck/1.0,curl/` | Monitor user-agent list |
 | `HP_DB_PATH` | `/data/honeypot.db` | Container volume path |
 | `DATABASE_URL` | `sqlite+pysqlite:////data/honeypot.db` | Container volume path |
-| `HP_GEOIP_DB` | `/app/data/GeoLite2-Country.mmdb` | Container path |
+| `HP_ASN_RESOLVER_URL` | `https://ipwho.is/{ip}` | Optional geo resolver |
 
 > Note: `HONEYPOT_MONITOR_BASE_URL` is also hardcoded in `compose/docker-compose.prod.yml`
 > under the `admin` service environment, which takes precedence over `.env.prod`.
@@ -82,23 +82,12 @@ nano .env.prod   # or vim
 
 ---
 
-## 4. GeoIP database (for country flags)
+## 4. Geo resolver (for country flags)
 
-MaxMind GeoLite2 is not included. Download it free from [maxmind.com](https://www.maxmind.com/en/geolite2/signup):
-
-```bash
-mkdir -p /opt/noctisapi-core/data
-# Download GeoLite2-Country.mmdb and place it here:
-# /opt/noctisapi-core/data/GeoLite2-Country.mmdb
-```
-
-Or use the update script if you have MaxMind credentials:
-
-```bash
-export MAXMIND_ACCOUNT_ID=...
-export MAXMIND_LICENSE_KEY=...
-bash ops/geoip/update_geoip.sh
-```
+Core uses `HP_ASN_RESOLVER_URL=https://ipwho.is/{ip}` by default. No local
+`.mmdb` database or bind mount is required. To use a different resolver, set
+`HP_ASN_RESOLVER_URL` to an HTTP endpoint that returns country code/name JSON and
+keeps the `{ip}` placeholder.
 
 ---
 

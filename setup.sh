@@ -129,6 +129,7 @@ HP_PUBLIC_HOST=${HP_PUBLIC_HOST}
 ACME_EMAIL=${ACME_EMAIL}
 HP_SEED=${HP_SEED}
 HP_PANEL_TOKEN=${HP_PANEL_TOKEN}
+HP_ASN_RESOLVER_URL=https://ipwho.is/{ip}
 LOG_LEVEL=info
 ENVEOF
   chmod 600 "$ENV_FILE"
@@ -186,8 +187,7 @@ echo -e "${YELLOW}${BOLD}│${RESET}  To change token: edit HP_PANEL_TOKEN in ${
 echo -e "${YELLOW}${BOLD}│${RESET}  Then restart: docker compose ... restart admin          ${YELLOW}${BOLD}│${RESET}"
 echo -e "${YELLOW}${BOLD}└─────────────────────────────────────────────────────────┘${RESET}"
 echo ""
-echo "  GeoIP (optional):"
-echo "    Download GeoLite2-Country.mmdb from maxmind.com and place at:"
-echo "    ${INSTALL_DIR}/data/GeoLite2-Country.mmdb"
-echo "    Then restart:  docker compose -f ${COMPOSE_FILE} --env-file ${ENV_FILE} restart app"
+echo "  Geo resolver:"
+echo "    Default: HP_ASN_RESOLVER_URL=https://ipwho.is/{ip}"
+echo "    To change it, edit ${ENV_FILE} and restart app/admin."
 echo ""

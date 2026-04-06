@@ -21,7 +21,6 @@ services:
     command: ["python", "main.py"]
     volumes:
       - hp_prod_data:/data
-      - ../data/GeoLite2-Country.mmdb:/app/data/GeoLite2-Country.mmdb:ro
     expose:
       - "8000"
     depends_on:
@@ -70,7 +69,6 @@ services:
     command: ["python", "main_panel.py"]
     volumes:
       - hp_prod_data:/data
-      - ../data/GeoLite2-Country.mmdb:/app/data/GeoLite2-Country.mmdb:ro
     expose:
       - "9001"
     ports:

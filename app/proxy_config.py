@@ -5,7 +5,7 @@ builds an httpx-compatible ``mounts`` map.  When no proxy is configured
 the returned dict is empty, so existing httpx.Client() call sites are
 not affected.
 
-urllib.request (used by honey_licensing/client.py and panel_mvp.py)
+urllib.request (used by panel_mvp.py)
 automatically honours HTTP_PROXY / HTTPS_PROXY / NO_PROXY from the
 environment via its default ProxyHandler — no changes are needed there.
 

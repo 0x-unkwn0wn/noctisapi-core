@@ -79,15 +79,10 @@ Traefik handles certificates automatically via ACME HTTP-01.
    - `docker compose -f compose/docker-compose.prod.yml --env-file .env.prod run --rm --user 0:0 app sh -c "chown -R 10001:0 /data"`
    - then re-run `bash /opt/noctisapi-core/ops/vps/deploy.sh`
 
-## Phase 5.1: GeoIP database (flags)
-MaxMind GeoLite2 is not committed to git. Download it on the server:
-1. Export credentials:
-   - `export MAXMIND_ACCOUNT_ID=...`
-   - `export MAXMIND_LICENSE_KEY=...`
-2. Run:
-   - `bash /opt/noctisapi-core/ops/geoip/update_geoip.sh`
-3. Ensure `.env.prod` uses:
-   - `HP_GEOIP_DB=/app/data/GeoLite2-Country.mmdb`
+## Phase 5.1: Geo resolver (flags)
+Core uses `HP_ASN_RESOLVER_URL=https://ipwho.is/{ip}` by default. No local
+`.mmdb` database is required. To change the resolver, edit `.env.prod`, keep the `{ip}`
+placeholder in the URL, and restart `app` and `admin`.
 
 ## Phase 5.2: Data Retention (TTL)
 1. Copy retention cron:
@@ -138,4 +133,3 @@ Steps:
 - Ensure your proxy (Traefik) sets `X-Forwarded-For` and `X-Real-IP`.
 - Uvicorn should run with `--proxy-headers` and `--forwarded-allow-ips` if you want trusted proxy headers.
 - If you need hard guarantees, restrict `forwarded-allow-ips` to your proxy IP.
-
