@@ -16,7 +16,7 @@ Do not open public issues for security vulnerabilities.
 
 Report vulnerabilities via:
 
-**security@noctisapi.com**
+**abuse@noctisapi.com**
 
 Include:
 
